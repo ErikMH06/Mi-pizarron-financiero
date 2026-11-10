@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>Mi pizarrón financiero</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101827;color:#f4f6fb;font-family:Arial,sans-serif;padding:18px}
+main{max-width:700px;margin:auto}
+h1{font-size:26px}
+.card{background:#1c293b;border-radius:16px;padding:17px;margin:14px 0}
+.total{font-size:34px;font-weight:bold;color:#63e6be}
+input,select,button{width:100%;padding:13px;border-radius:10px;border:0;margin:6px 0;font-size:16px}
+input,select{background:#edf1f7;color:#172033}
+button{background:#63e6be;color:#10221e;font-weight:bold}
+.secondary{background:#34445b;color:white}
+small{color:#bdc8d8}
+.row{display:flex;gap:8px}
+.row>*{flex:1;min-width:0}
+li{padding:9px 0;border-bottom:1px solid #34445b}
+</style>
+</head>
+<body>
+<main>
+<h1>💰 Mi pizarrón financiero</h1>
+<p><small>Tu control diario de dinero</small></p>
+
+<div class="card">
+<small>DINERO DISPONIBLE</small>
+<div class="total" id="balance">$0.00</div>
+<label>Saldo inicial</label>
+<input id="opening" type="number" placeholder="Escribe tu efectivo actual">
+<button onclick="setOpening()">Guardar saldo inicial</button>
+</div>
+
+<div class="card">
+<h3>Registrar movimiento</h3>
+<input id="concept" placeholder="Concepto (ej. propinas, comida)">
+<div class="row">
+<input id="amount" type="number" placeholder="Cantidad" min="0" step="0.01">
+<select id="type">
+<option value="in">Ingreso (+)</option>
+<option value="out">Gasto (-)</option>
+</select>
+</div>
+<button onclick="addMovement()">Guardar movimiento</button>
+</div>
+
+<div class="card">
+<h3>🎯 Meta semanal</h3>
+<input id="goal" type="number" value="4000" min="0">
+<p>Ingresos registrados esta semana: <b id="weekly">$0.00</b></p>
+</div>
+
+<div class="card">
+<h3>📒 Historial</h3>
+<ul id="history"></ul>
+<button class="secondary" onclick="exportData()">Exportar respaldo</button>
+<button class="secondary" onclick="document.getElementById('file').click()">Importar respaldo</button>
+<input id="file" type="file" accept="application/json" hidden onchange="importData(event)">
+</div>
+<p><small>Los datos se guardan en este navegador. Exporta respaldos y no los publiques.</small></p>
+</main>
+<script>
+let data=JSON.parse(localStorage.getItem('pizarron')||'{"opening":0,"goal":4000,"moves":[]}');
+function save(){localStorage.setItem('pizarron',JSON.stringify(data));render()}
+function money(n){return n.toLocaleString('es-MX',{style:'currency',currency:'MXN'})}
+function setOpening(){
+let n=Number(document.getElementById('opening').value);
+if(!Number.isFinite(n)||n<0)return alert('Escribe una cantidad válida');
+data.opening=n;save();
+}
+function addMovement(){
+let concept=document.getElementById('concept').value.trim();
+let amount=Number(document.getElementById('amount').value);
+let type=document.getElementById('type').value;
+if(!concept||!Number.isFinite(amount)||amount<=0)return alert('Completa concepto y cantidad');
+data.moves.unshift({concept,amount,type,date:new Date().toLocaleString('es-MX')});
+document.getElementById('concept').value='';
+document.getElementById('amount').value='';
+save();
+}
+function render(){
+let balance=data.opening+data.moves.reduce((s,m)=>s+(m.type==='in'?m.amount:-m.amount),0);
+document.getElementById('balance').textContent=money(balance);
+document.getElementById('goal').value=data.goal;
+let week=data.moves.filter(m=>m.type==='in').reduce((s,m)=>s+m.amount,0);
+document.getElementById('weekly').textContent=money(week);
+document.getElementById('history').innerHTML=data.moves.map(m=>`<li>${m.type==='in'?'🟢':'🔴'} ${m.concept} — ${money(m.amount)}<br><small>${m.date}</small></li>`).join('')||'<li>Sin movimientos todavía</li>';
+}
+document.getElementById('goal').addEventListener('change',e=>{data.goal=Math.max(0,Number(e.target.value)||0);save()});
+function exportData(){
+let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='respaldo-financiero.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(e){
+let f=e.target.files[0];if(!f)return;
+let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(typeof d.opening!=='number'||!Array.isArray(d.moves))throw Error();data=d;save();alert('Respaldo importado')}catch{alert('Archivo no válido')}};r.readAsText(f);
+}
+render();
+</script>
+</body>
+</html>
